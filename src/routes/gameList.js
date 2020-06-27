@@ -8,10 +8,10 @@ const getGameList = async () => {
     let result = await axios.get(
       "http://api.steampowered.com/ISteamApps/GetAppList/v2/"
     );
-    console.log(
-      "------------------ @@ RESULT: @@ ------------------",
-      result.data.applist
-    );
+    // console.log(
+    //   "------------------ @@ RESULT: @@ ------------------",
+    //   result.data.applist
+    // );
     return result.data.applist.apps;
   } catch (error) {
     console.error(error);
@@ -19,23 +19,17 @@ const getGameList = async () => {
 };
 
 const getGameDetails = async (gameId) => {
-  try {
-    let gameDetail = await axios.get(
+  return await axios
+    .get(
       `https://store.steampowered.com/api/appdetails?appids=${gameId}&cc=no&l=en`
-    ).data;
-
-    console.log(
-      "------------------ @@ GAME DETAIL: @@ ------------------",
-      gameDetail[gameId]
-    );
-    if (gameDetail[gameId].success == false) {
-      throw "Game detail fetch failure";
-    }
-    return gameDetail[gameId];
-  } catch (error) {
-    console.error(error);
-    return;
-  }
+    )
+    .then((res) => {
+      if (res.data[gameId].success == false) {
+        throw "Game detail fetch failure";
+      }
+      return res.data[gameId];
+    })
+    .catch(console.error);
 };
 
 // Save game list to DB
@@ -61,29 +55,37 @@ router.route("/").post(async (req, res) => {
   // Total calls = 94599 + 1
   let canStillRun = true;
 
-  console.log("NEW GAME FROM MAP:", newGameFromMap);
+  // console.log("NEW GAME FROM MAP:", newGameFromMap);
+  let timeOutVariable = 0;
 
-  const gameDetailFromMap = newGameFromMap.slice(10, 15).map((game) => {
-    // gameId.data -> only if gameId.success == true
-    if (canStillRun === true) {
-      console.log("GAME ID: ", game);
-      const gameDetail = getGameDetails(game.gameId);
-      if (!gameDetail) {
-        canStillRun = false;
-        return;
+  const gameDetailFromMap = newGameFromMap.slice(0, 99).map(async (game) => {
+    timeOutVariable += 150;
+    setTimeout(async () => {
+      const gameDetailId = game.gameId;
+      console.log("&&&&&& gameDetailId &&&&&&", gameDetailId);
+      // gameId.data -> only if gameId.success == true
+      if (canStillRun === true) {
+        console.log("GAME ID: ", game);
+        const gameDetail = await getGameDetails(gameDetailId);
+        if (!gameDetail) {
+          canStillRun = false;
+          return;
+        }
+        return new Game({
+          gameId: gameDetailId,
+          gameImage: gameDetail.data.header_image,
+          gameName: gameDetail.data.name,
+          gamePrice: gameDetail.data.price_overview
+            ? gameDetail.data.price_overview.final / 100
+            : null,
+          gameDescription: gameDetail.data.short_description,
+          gameIsFree: gameDetail.data.is_free,
+          gameGenres: gameDetail.data.genres[0].description,
+        }).save();
       }
-      return new Game({
-        gameId: game.gameId,
-        gameImage: gameDetail.data.header_image,
-        gameName: gameDetail.data.name,
-        gamePrice: gameDetail.data.price_overview.final / 100,
-        gameDescription: gameDetail.data.short_description,
-        gameIsFree: gameDetail.data.is_free,
-        gameGenres: gameDetail.data.genres[0].description,
-      });
-    }
+    }, timeOutVariable);
   });
-  //Game.insertMany(gameDetailFromMap);
+  // Game.insertMany(gameDetailFromMap);
   console.log("GAME DETAILS FROM MAP:", gameDetailFromMap);
   res.json("List of games successfully updated.");
 });
