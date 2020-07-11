@@ -60,7 +60,7 @@ router.route("/").post(async (req, res) => {
 
   // console.log("NEW GAME FROM MAP:", newGameFromMap);
 
-  const gameDetailFromMap = newGameFromMap.slice(0, 99).map(async game => {
+  newGameFromMap.slice(0, 99).map(async game => {
     const gameDetailId = game.gameId;
 
     console.log("&&&&&& gameDetailId &&&&&&", gameDetailId);
