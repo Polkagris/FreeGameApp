@@ -1,17 +1,17 @@
 version: "3.7"
 services:
-  mongodb-freegame-mock:
+  mongodb-freegames-mock:
     image: mongo:4.2
     restart: always
-    environment:
-      MONGO_INITDB_DATABASE: free-games-mock-db
-      MONGO_INITDB_ROOT_USERNAME: user
-      MONGO_INITDB_ROOT_PASSWORD: test123
     ports:
-      - 27017-27019:27017-27019
+      - 27017:27017
   api:
     build: .
-  volumes:
-    - "./app:/usr/src/app"
-  ports:
-    - "3000:3000"
+    volumes:
+      - ".:/app"
+    environment:
+      ATLAS_URI: "mongodb://mongodb-freegames-mock:27017/"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb-freegames-mock
