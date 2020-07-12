@@ -18,15 +18,61 @@ const getGameList = async () => {
   }
 };
 
-const getGameDetails = async gameId => {
+// `https://store.steampowered.com/api/appdetails?appids=${gameId}&filters=price_overview&cc=no&l=en`
+const getGameDetails = async (gameId) => {
   return await axios
-    .get(
-      `https://store.steampowered.com/api/appdetails?appids=${gameId}&cc=no&l=en`
-    )
-    .then(res => {
-      if (res.data[gameId].success == false) {
-        throw `No game details for id: ${gameId}`;
+    .get(`https://store.steampowered.com/api/appdetails?appids=${gameId}`)
+    .then((res) => {
+      if (!res.data[gameId].data) {
+        console.log(
+          "@@@@@@@@@@ SKIPPED - because of no data in object @@@@@@@@@@",
+          res.data
+        );
+        return;
       }
+      if (res.data[gameId].success == false) {
+        console.error;
+        throw "Game detail fetch failure";
+        //return here too?
+      }
+      console.log(
+        "RETURNING data[gameId] from getGameDetails fetch call.",
+        res.data[gameId].data.steam_appid,
+        " TYPE: " + res.data[gameId].data.type
+      );
+
+      if (!res.data[gameId].data.header_image) {
+        console.log(
+          res.data[gameId].data.steam_appid +
+            "IS MISSING SOME DETAILS - header_image"
+        );
+      } else if (!res.data[gameId].data.name) {
+        console.log(
+          res.data[gameId].data.steam_appid + "IS MISSING SOME DETAILS - name"
+        );
+      } else if (!res.data[gameId].data.price_overview) {
+        console.log(
+          res.data[gameId].data.steam_appid +
+            "IS MISSING SOME DETAILS - price_overview"
+        );
+      } else if (!res.data[gameId].data.short_description) {
+        console.log(
+          res.data[gameId].data.steam_appid +
+            "IS MISSING SOME DETAILS - short_description"
+        );
+      } else if (!res.data[gameId].data.is_free) {
+        console.log(
+          res.data[gameId].data.steam_appid +
+            "IS MISSING SOME DETAILS - is_free"
+        );
+      } else if (!res.data[gameId].data.genres[0].description) {
+        console.log(
+          res.data[gameId].data.steam_appid +
+            "IS MISSING SOME DETAILS - description"
+        );
+
+      }
+
       return res.data[gameId];
     })
     .catch(err => {
@@ -58,15 +104,22 @@ router.route("/").post(async (req, res) => {
   // Total calls = 94599 + 1
   let canStillRun = true;
 
-  // console.log("NEW GAME FROM MAP:", newGameFromMap);
-
-  newGameFromMap.slice(0, 99).map(async game => {
+  const gameDetailFromMap = newGameFromMap.slice(389, 409).map(async (game) => {
+    timeOutVariable += 50;
+    // setTimeout(async () => {
     const gameDetailId = game.gameId;
 
-    console.log("&&&&&& gameDetailId &&&&&&", gameDetailId);
+    console.log("&&&&&& game ID &&&&&&", gameDetailId);
     // gameId.data -> only if gameId.success == true
     if (canStillRun === true) {
-      console.log("GAME ID: ", game);
+      console.log("GAME: ", game);
+      // Try my best!
+      console.log(
+        "---------------------------- GameIdArray ----------------------------:",
+        gameIdArray
+      );
+      // gameDetailId
+
       const gameDetail = await getGameDetails(gameDetailId);
       if (!gameDetail) {
         canStillRun = false;
@@ -77,6 +130,7 @@ router.route("/").post(async (req, res) => {
       /* if (!gameDetail.data.is_free) {
         return;
       } */
+
 
       return new Game({
         gameId: gameDetailId,
@@ -94,7 +148,10 @@ router.route("/").post(async (req, res) => {
         .catch(err => console.log(err));
     }
   });
-  // Game.insertMany(gameDetailFromMap);
+
+  await Game.insertMany(gameDetailFromMap);
+  console.log("GAME DETAILS FROM MAP:", gameDetailFromMap);
+
   res.json("List of games successfully updated.");
 });
 
