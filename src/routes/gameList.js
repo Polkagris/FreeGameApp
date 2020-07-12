@@ -17,6 +17,7 @@ const getGameList = async () => {
     console.error(error);
   }
 };
+
 // `https://store.steampowered.com/api/appdetails?appids=${gameId}&filters=price_overview&cc=no&l=en`
 const getGameDetails = async (gameId) => {
   return await axios
@@ -69,11 +70,15 @@ const getGameDetails = async (gameId) => {
           res.data[gameId].data.steam_appid +
             "IS MISSING SOME DETAILS - description"
         );
+
       }
 
       return res.data[gameId];
     })
-    .catch(console.error);
+    .catch(err => {
+      console.log("error: ", err);
+      return err;
+    });
 };
 
 // Save game list to DB
@@ -81,7 +86,7 @@ router.route("/").post(async (req, res) => {
   // Do fetch call
   const gameListFromFetch = await getGameList();
   // Save list to db
-  const newGameFromMap = gameListFromFetch.map((app) => {
+  const newGameFromMap = gameListFromFetch.map(app => {
     const gameId = app.appid;
     const gameName = app.name;
     const source = "Steam";
@@ -90,7 +95,7 @@ router.route("/").post(async (req, res) => {
     const newGame = new List({
       gameId: gameId,
       gameName: gameName,
-      source: source,
+      source: source
     });
     return newGame;
   });
@@ -98,13 +103,6 @@ router.route("/").post(async (req, res) => {
 
   // Total calls = 94599 + 1
   let canStillRun = true;
-
-  let timeOutVariable = 0;
-
-  let gameIdArray = [];
-  newGameFromMap.slice(333, 352).map(async (game) => {
-    gameIdArray.push(game.gameId);
-  });
 
   const gameDetailFromMap = newGameFromMap.slice(389, 409).map(async (game) => {
     timeOutVariable += 50;
@@ -121,11 +119,19 @@ router.route("/").post(async (req, res) => {
         gameIdArray
       );
       // gameDetailId
+
       const gameDetail = await getGameDetails(gameDetailId);
       if (!gameDetail) {
         canStillRun = false;
         return;
       }
+
+      // Write only free games to DB.
+      /* if (!gameDetail.data.is_free) {
+        return;
+      } */
+
+
       return new Game({
         gameId: gameDetailId,
         gameImage: gameDetail.data.header_image,
@@ -135,13 +141,17 @@ router.route("/").post(async (req, res) => {
           : null,
         gameDescription: gameDetail.data.short_description,
         gameIsFree: gameDetail.data.is_free,
-        gameGenres: gameDetail.data.genres[0].description,
-      }).save();
+        gameGenres: gameDetail.data.genres[0].description
+      })
+        .save()
+        .then(res => console.log("Game Written to DB: ", res))
+        .catch(err => console.log(err));
     }
-    // }, timeOutVariable);
   });
+
   await Game.insertMany(gameDetailFromMap);
   console.log("GAME DETAILS FROM MAP:", gameDetailFromMap);
+
   res.json("List of games successfully updated.");
 });
 

@@ -1,0 +1,17 @@
+version: "3.7"
+services:
+  mongodb-freegames-mock:
+    image: mongo:4.2
+    restart: always
+    ports:
+      - 27017:27017
+  api:
+    build: .
+    volumes:
+      - ".:/app"
+    environment:
+      ATLAS_URI: "mongodb://mongodb-freegames-mock:27017/"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb-freegames-mock
