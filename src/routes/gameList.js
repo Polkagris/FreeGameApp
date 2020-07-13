@@ -5,14 +5,19 @@ let Game = require("../models/game.model");
 
 const getGameList = async () => {
   try {
-    let result = await axios.get(
-      "http://api.steampowered.com/ISteamApps/GetAppList/v2/"
-    );
+    // let result = await axios.get(
+    //   "http://api.steampowered.com/ISteamApps/GetAppList/v2/"
+    // );
+    const dbListOfGames = await List.find({}, (error, dbGameList) => {
+      if (error) return handleError(error);
+      return dbGameList;
+    }).limit(20);
     // console.log(
     //   "------------------ @@ RESULT: @@ ------------------",
     //   result.data.applist
     // );
-    return result.data.applist.apps;
+    // return result.data.applist.apps;
+    return dbListOfGames;
   } catch (error) {
     console.error(error);
   }
@@ -70,57 +75,66 @@ const getGameDetails = async (gameId) => {
           res.data[gameId].data.steam_appid +
             "IS MISSING SOME DETAILS - description"
         );
-
       }
 
       return res.data[gameId];
     })
-    .catch(err => {
+    .catch((err) => {
       console.log("error: ", err);
       return err;
     });
 };
 
-// Save game list to DB
 router.route("/").post(async (req, res) => {
-  // Do fetch call
   const gameListFromFetch = await getGameList();
-  // Save list to db
-  const newGameFromMap = gameListFromFetch.map(app => {
-    const gameId = app.appid;
-    const gameName = app.name;
+  gameListFromFetch.slice(0, 19).map((game) => {
+    console.log("Game from db:", game);
+
+    const gameId = game.appid;
+    const gameName = game.name;
     const source = "Steam";
 
     // New GameList item
     const newGame = new List({
       gameId: gameId,
       gameName: gameName,
-      source: source
+      source: source,
     });
     return newGame;
   });
-  // List.insertMany(newGameFromMap);
+  // console.log("Game list from db:", testGameSlicedList);
+
+  // // Save list to db
+  // const newGameFromMap = gameListFromFetch.map((app) => {
+  //   const gameId = app.appid;
+  //   const gameName = app.name;
+  //   const source = "Steam";
+
+  //   // New GameList item
+  //   const newGame = new List({
+  //     gameId: gameId,
+  //     gameName: gameName,
+  //     source: source,
+  //   });
+  //   return newGame;
+  // });
+  // // List.insertMany(newGameFromMap);
 
   // Total calls = 94599 + 1
   let canStillRun = true;
 
-  const gameDetailFromMap = newGameFromMap.slice(389, 409).map(async (game) => {
-    timeOutVariable += 50;
+  const gameDetailFromMap = gameListFromFetch.map(async (game) => {
+    let timeOutVariable = 50;
     // setTimeout(async () => {
     const gameDetailId = game.gameId;
 
     console.log("&&&&&& game ID &&&&&&", gameDetailId);
-    // gameId.data -> only if gameId.success == true
+
     if (canStillRun === true) {
       console.log("GAME: ", game);
-      // Try my best!
-      console.log(
-        "---------------------------- GameIdArray ----------------------------:",
-        gameIdArray
-      );
-      // gameDetailId
 
       const gameDetail = await getGameDetails(gameDetailId);
+
       if (!gameDetail) {
         canStillRun = false;
         return;
@@ -131,7 +145,6 @@ router.route("/").post(async (req, res) => {
         return;
       } */
 
-
       return new Game({
         gameId: gameDetailId,
         gameImage: gameDetail.data.header_image,
@@ -141,11 +154,11 @@ router.route("/").post(async (req, res) => {
           : null,
         gameDescription: gameDetail.data.short_description,
         gameIsFree: gameDetail.data.is_free,
-        gameGenres: gameDetail.data.genres[0].description
+        gameGenres: gameDetail.data.genres[0].description,
       })
         .save()
-        .then(res => console.log("Game Written to DB: ", res))
-        .catch(err => console.log(err));
+        .then((res) => console.log("Game Written to DB: ", res))
+        .catch((err) => console.log(err));
     }
   });
 
